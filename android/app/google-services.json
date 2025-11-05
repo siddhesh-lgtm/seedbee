@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357089760561",
+    "project_id": "shared-notes-app-2a464",
+    "storage_bucket": "shared-notes-app-2a464.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357089760561:android:8b465a601156486c724c10",
+        "android_client_info": {
+          "package_name": "com.example.shared_notes_groovy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQ4-FJVtOWw_pTPGA8H1KIfbYU9hNcydo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
