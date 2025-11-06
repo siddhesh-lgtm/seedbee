@@ -14,20 +14,12 @@ class WidgetSyncService {
         final String display = (data['display_text']?.toString() ?? '').trim();
         final String id = (data['selected_note_id']?.toString() ?? '').trim();
         final String imagePath = (data['image_path']?.toString() ?? '').trim();
-        final int? bg = (data['background'] as num?)?.toInt();
-        final int? textColor = (data['text_color'] as num?)?.toInt();
         if (display.isNotEmpty) {
           await HomeWidget.saveWidgetData('note_text', display);
           if (id.isNotEmpty) {
             await HomeWidget.saveWidgetData('note_id', id);
           }
           await HomeWidget.saveWidgetData('note_image', imagePath);
-          if (bg != null) {
-            await HomeWidget.saveWidgetData('note_bg', bg);
-          }
-          if (textColor != null) {
-            await HomeWidget.saveWidgetData('note_text_color', textColor);
-          }
           await HomeWidget.updateWidget(androidName: 'NoteWidgetProvider');
         }
       }

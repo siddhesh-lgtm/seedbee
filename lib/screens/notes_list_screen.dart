@@ -125,9 +125,9 @@ class _NotesListScreenState extends State<NotesListScreen> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text('${n.category} · ' 
+                  subtitle: Text('${n.category} - '
           '${DateTime.fromMillisecondsSinceEpoch(n.updatedAt)}'),
-      trailing: IconButton(
+trailing: IconButton(
         icon: Icon(n.pinned ? Icons.push_pin : Icons.push_pin_outlined),
         onPressed: () async {
           final updated = Note(
@@ -216,9 +216,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
     // Also pass image and background
     final img = n.imagePaths.isNotEmpty ? n.imagePaths.first : '';
     await HomeWidget.saveWidgetData('note_image', img);
-    if (n.backgroundColor != null) {
-      await HomeWidget.saveWidgetData('note_bg', n.backgroundColor);
-    }
+    // Background/text colors removed
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_note_id', n.id);
     // Broadcast selection to all users
@@ -227,7 +225,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
       'selected_note_id': n.id,
       'display_text': display.isEmpty ? '(Empty note)' : display,
       'image_path': img,
-      'background': n.backgroundColor,
       'updated_at': ServerValue.timestamp,
     });
     await HomeWidget.updateWidget(androidName: 'NoteWidgetProvider');
@@ -265,3 +262,4 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+

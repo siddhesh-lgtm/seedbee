@@ -25,22 +25,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   String _category = 'General';
-  final List<Color> _bgChoices = [
-    Colors.white,
-    const Color(0xFFFFF8E1),
-    const Color(0xFFE3F2FD),
-    const Color(0xFFE8F5E9),
-    const Color(0xFFFCE4EC),
-    const Color(0xFFFFEBEE),
-  ];
-  final List<Color> _textColors = [
-    Colors.black,
-    Colors.blueGrey,
-    Colors.blue,
-    Colors.red,
-    Colors.green,
-    Colors.purple,
-  ];
+  // Removed background and text color pickers per request.
   final List<String> _undoStack = [];
   final List<String> _redoStack = [];
 
@@ -80,6 +65,27 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       ..underline = _note.underline
       ..strike = _note.strike;
     await _repo.upsertNote(_note);
+    // If this is the note currently selected for the widget, also refresh the
+    // shared widget payload so Cloud Functions can fan out a push immediately.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final selectedId = prefs.getString('selected_note_id');
+      if (selectedId == _note.id) {
+        final text = _bodyController.text.trim();
+        final display = (_titleController.text.trim().isNotEmpty
+                ? '${_titleController.text.trim()}\n\n'
+                : '') +
+            text;
+        final img = _note.imagePaths.isNotEmpty ? _note.imagePaths.first : '';
+        final ref = FirebaseDatabase.instance.ref('notes/widget');
+        await ref.set({
+          'selected_note_id': _note.id,
+          'display_text': display.isEmpty ? '(Empty note)' : display,
+          'image_path': img,
+          'updated_at': ServerValue.timestamp,
+        });
+      }
+    } catch (_) {}
   }
 
   String _deltaToPlainText(String raw) {
@@ -192,20 +198,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               await HomeWidget.saveWidgetData('note_id', _note.id);
               final img = _note.imagePaths.isNotEmpty ? _note.imagePaths.first : '';
               await HomeWidget.saveWidgetData('note_image', img);
-              if (_note.backgroundColor != null) {
-                await HomeWidget.saveWidgetData('note_bg', _note.backgroundColor);
-              }
-              if (_note.textColor != null) {
-                await HomeWidget.saveWidgetData('note_text_color', _note.textColor);
-              }
+              // No longer saving background or text color into the widget store.
               // Broadcast to all devices
               final ref = FirebaseDatabase.instance.ref('notes/widget');
               await ref.set({
                 'selected_note_id': _note.id,
                 'display_text': display.isEmpty ? '(Empty note)' : display,
                 'image_path': img,
-                'background': _note.backgroundColor,
-                'text_color': _note.textColor,
+                // Colors removed; rely on default widget styling
                 'updated_at': ServerValue.timestamp,
               });
               final prefs = await SharedPreferences.getInstance();
@@ -228,181 +228,59 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       ),
       body: Column(
         children: [
-          // Background + simple formatting + undo/redo
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              children: [
-                for (final c in _bgChoices)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () async {
-                        _note.backgroundColor = c.value;
-                        await _save();
-                        if (mounted) setState(() {});
-                      },
-                      child: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: c,
-                        child: (_note.backgroundColor == c.value)
-                            ? const Icon(Icons.check, size: 16)
-                            : null,
-                      ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Text color options
-                for (final c in _textColors)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: GestureDetector(
-                      onTap: () async {
-                        _note.textColor = c.value;
-                        await _save();
-                        if (mounted) setState(() {});
-                      },
-                      child: CircleAvatar(
-                        radius: 10,
-                        backgroundColor: c,
-                        child: (_note.textColor == c.value)
-                            ? const Icon(Icons.radio_button_checked, size: 12, color: Colors.white)
-                            : null,
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                IconButton(
-                  tooltip: 'Undo',
-                  icon: const Icon(Icons.undo),
-                  onPressed: () {
-                    if (_undoStack.length >= 2) {
-                      final cur = _undoStack.removeLast();
-                      _redoStack.add(cur);
-                      final prev = _undoStack.last;
-                      _bodyController.text = prev;
-                    }
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Redo',
-                  icon: const Icon(Icons.redo),
-                  onPressed: () {
-                    if (_redoStack.isNotEmpty) {
-                      final next = _redoStack.removeLast();
-                      _bodyController.text = next;
-                      _undoStack.add(next);
-                    }
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Bold',
-                  icon: const Icon(Icons.format_bold),
-                  onPressed: () async {
-                    _note.bold = !_note.bold;
-                    await _save();
-                    if (mounted) setState(() {});
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Italic',
-                  icon: const Icon(Icons.format_italic),
-                  onPressed: () async {
-                    _note.italic = !_note.italic;
-                    await _save();
-                    if (mounted) setState(() {});
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Underline',
-                  icon: const Icon(Icons.format_underline),
-                  onPressed: () async {
-                    _note.underline = !_note.underline;
-                    await _save();
-                    if (mounted) setState(() {});
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Strikethrough',
-                  icon: const Icon(Icons.format_strikethrough),
-                  onPressed: () async {
-                    _note.strike = !_note.strike;
-                    await _save();
-                    if (mounted) setState(() {});
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Bullet',
-                  icon: const Icon(Icons.format_list_bulleted),
-                  onPressed: () {
-                    final t = _bodyController.text;
-                    final sel = _bodyController.selection.start;
-                    final before = t.substring(0, sel);
-                    final after = t.substring(sel);
-                    _bodyController.text = '$before- $after';
-                    _bodyController.selection = TextSelection.collapsed(offset: sel + 2);
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Numbered',
-                  icon: const Icon(Icons.format_list_numbered),
-                  onPressed: () {
-                    final t = _bodyController.text;
-                    final sel = _bodyController.selection.start;
-                    final before = t.substring(0, sel);
-                    final after = t.substring(sel);
-                    _bodyController.text = '${before}1. $after';
-                    _bodyController.selection = TextSelection.collapsed(offset: sel + 3);
-                  },
-                ),
-              ],
-            ),
-          ),
+          const SizedBox.shrink(),
           Expanded(
-            child: Container(
-              color: Color(_note.backgroundColor ?? Colors.white.value),
+            child: Padding(
               padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _bodyController,
-                      maxLines: null,
-                      style: TextStyle(
-                        color: Color(_note.textColor ?? Colors.black.value),
-                        fontWeight: _note.bold ? FontWeight.bold : FontWeight.normal,
-                        fontStyle: _note.italic ? FontStyle.italic : FontStyle.normal,
-                        decoration: TextDecoration.combine([
-                          if (_note.underline) TextDecoration.underline,
-                          if (_note.strike) TextDecoration.lineThrough,
-                        ]),
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Start typing your note...',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  if (_note.imagePaths.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 80,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _note.imagePaths.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) {
-                          final p = _note.imagePaths[i];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.file(File(p), width: 80, height: 80, fit: BoxFit.cover),
-                          );
-                        },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                ),
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _bodyController,
+                        maxLines: null,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: _note.bold ? FontWeight.bold : FontWeight.normal,
+                          fontStyle: _note.italic ? FontStyle.italic : FontStyle.normal,
+                          decoration: TextDecoration.combine([
+                            if (_note.underline) TextDecoration.underline,
+                            if (_note.strike) TextDecoration.lineThrough,
+                          ]),
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Start typing your note...',
+                          border: InputBorder.none,
+                          isCollapsed: false,
+                        ),
                       ),
                     ),
+                    if (_note.imagePaths.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 80,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _note.imagePaths.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, i) {
+                            final p = _note.imagePaths[i];
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.file(File(p), width: 80, height: 80, fit: BoxFit.cover),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_quill/flutter_quill.dart' show FlutterQuillLocalizations;
 import 'firebase_options.dart';
 import 'screens/notes_list_screen.dart';
 import 'services/widget_sync_service.dart';
+import 'services/push_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Enable Realtime Database offline persistence before any database use
+  FirebaseDatabase.instance.setPersistenceEnabled(true);
+  // Set up FCM topic + handlers to push-refresh the widget
+  await PushService().init();
   // Start widget cross-device sync listener
   WidgetSyncService().start();
   runApp(const SharedNotesApp());

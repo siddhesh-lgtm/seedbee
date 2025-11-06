@@ -4,12 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note.dart';
 
 class NotesRepository {
-  final DatabaseReference _root =
-      FirebaseDatabase.instance.ref('notes/shared');
+  final DatabaseReference _root = FirebaseDatabase.instance.ref('notes/shared');
 
   NotesRepository() {
-    // Enable Firebase offline persistence and keep this path synced
-    FirebaseDatabase.instance.setPersistenceEnabled(true);
+    // Keep this path synced for offline cache
     _root.keepSynced(true);
   }
 
@@ -36,6 +34,15 @@ class NotesRepository {
     note.updatedAt = DateTime.now().millisecondsSinceEpoch;
     await _root.child(note.id).set(note.toMap());
     await _cacheLastNoteTitle(note.title);
+    // Broadcast a lightweight update marker for devices without FCM/Functions (Spark plan).
+    try {
+      final updates = FirebaseDatabase.instance.ref('notes/updates');
+      await updates.set({
+        'id': note.id,
+        'title': note.title,
+        'updated_at': ServerValue.timestamp,
+      });
+    } catch (_) {}
   }
 
   Future<void> deleteNote(String id) async {
